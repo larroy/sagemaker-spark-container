@@ -122,7 +122,7 @@ def test_sagemaker_pyspark_multinode(tag, role, image_uri, configuration, sagema
         arguments=["--input", input_data_uri, "--output", output_data_uri],
         configuration=configuration,
         spark_event_logs_s3_uri=spark_event_logs_s3_uri,
-        wait=False,
+        wait=False
     )
     processing_job = spark.latest_job
 

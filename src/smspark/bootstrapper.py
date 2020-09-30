@@ -37,6 +37,7 @@ class Bootstrapper:
     HADOOP_PATH = "/usr/lib/hadoop"
     SPARK_PATH = "/usr/lib/spark"
     HIVE_PATH = "/usr/lib/hive"
+    EMRFS_PATH = "/usr/share/aws/emr/emrfs/lib"
     PROCESSING_CONF_INPUT_PATH = "/opt/ml/processing/input/conf/configuration.json"
     PROCESSING_JOB_CONFIG_PATH = "/opt/ml/config/processingjobconfig.json"
     INSTANCE_TYPE_INFO_PATH = "/opt/aws-config/ec2-instance-type-info.json"
@@ -66,15 +67,11 @@ class Bootstrapper:
         jar_dest = Bootstrapper.SPARK_PATH + "/jars"
         for f in glob.glob("/usr/share/aws/aws-java-sdk/*.jar"):
             shutil.copyfile(f, os.path.join(jar_dest, os.path.basename(f)))
-        hadoop_aws_jar = "hadoop-aws-2.8.5-amzn-6.jar"
-        jets3t_jar = "jets3t-0.9.0.jar"
+        hadoop_aws_jar = "hadoop-aws-3.2.1-amzn-1.jar"
         shutil.copyfile(
             os.path.join(Bootstrapper.HADOOP_PATH, hadoop_aws_jar), os.path.join(jar_dest, hadoop_aws_jar),
         )
-        # this jar required for using s3a client
-        shutil.copyfile(
-            os.path.join(Bootstrapper.HADOOP_PATH + "/lib", jets3t_jar), os.path.join(jar_dest, jets3t_jar),
-        )
+
         # copy hmclient (glue data catalog hive metastore client) jars to classpath:
         # https://github.com/awslabs/aws-glue-data-catalog-client-for-apache-hive-metastore
         for f in glob.glob("/usr/share/aws/hmclient/lib/*.jar"):
@@ -395,7 +392,7 @@ class Bootstrapper:
             {
                 "spark.driver.memory": f"{driver_mem_mb}m",
                 "spark.driver.memoryOverhead": f"{driver_mem_ovr_mb}m",
-                "spark.driver.defaultJavaOptions": f"{driver_java_opts}m",
+                "spark.driver.defaultJavaOptions": f"{driver_java_opts}",
                 "spark.executor.memory": f"{executor_mem_mb}m",
                 "spark.executor.memoryOverhead": f"{executor_mem_ovr_mb}m",
                 "spark.executor.cores": f"{executor_cores}",

@@ -39,6 +39,11 @@ log = logging.getLogger(__name__)
     + " If a directory is provided, each file in the directory and its subdirectories is included.",
 )
 @click.option(
+    "--master",
+    help="spark master",
+    default="local[*]"
+)
+@click.option(
     "--files",
     help="Either a directory or a comma-separated list of files to be placed in the working directory of each executor."
     + " If a directory is provided, each file in the directory and its subdirectories is included.",
@@ -57,6 +62,7 @@ def submit(
     ctx: click.Context,
     class_: str,
     jars: str,
+    master: str,
     py_files: str,
     files: str,
     spark_event_logs_s3_uri: str,
@@ -228,8 +234,7 @@ def _construct_spark_submit_command(spark_opts: Dict[str, Any], app_and_app_argu
         if val:
             spark_options_list.append(f"--{key}")
             spark_options_list.append(val)
-    cmd = ["spark-submit", "--master", "yarn", "--deploy-mode", "client"]
+    cmd = ["spark-submit", "--deploy-mode", "client"]
     cmd.extend(spark_options_list)
     cmd.extend(app_and_app_arguments)
-    cmd_string = " ".join(shlex.quote(c) for c in cmd)
-    return cmd_string
+    return cmd

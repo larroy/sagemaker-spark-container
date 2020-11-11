@@ -158,31 +158,40 @@ class Bootstrapper:
         logging.info("Finished Yarn configuration files setup.")
 
     def start_hadoop_daemons(self) -> None:
+        self.logger.info("Starting hadoop daemons...")
         current_host = self.resource_config["current_host"]
         primary_host = self.resource_config["hosts"][0]
 
         # TODO: sync with EMR puppet scripts - ensure we are following best practices for starting hdfs/yarn daemons
-        cmd_prep_namenode_dir = "rm -rf /opt/amazon/hadoop/hdfs/namenode && mkdir -p /opt/amazon/hadoop/hdfs/namenode"
-        cmd_prep_datanode_dir = "rm -rf /opt/amazon/hadoop/hdfs/datanode && mkdir -p /opt/amazon/hadoop/hdfs/datanode"
+        cmd_prep_namenode_dir = ["rm -rf /opt/amazon/hadoop/hdfs/namenode", "mkdir -p /opt/amazon/hadoop/hdfs/namenode"]
+        cmd_prep_datanode_dir = ["rm -rf /opt/amazon/hadoop/hdfs/datanode", "mkdir -p /opt/amazon/hadoop/hdfs/datanode"]
         cmd_namenode_format = "hdfs namenode -format -force"
-        cmd_namenode_start = "hdfs namenode"
-        cmd_datanode_start = "hdfs datanode"
-        cmd_resourcemanager_start = "yarn resourcemanager"
-        cmd_nodemanager_start = "yarn nodemanager"
+        cmd_namenode_start = "hdfs --daemon start namenode"
+        cmd_datanode_start = "hdfs --daemon start datanode"
+        cmd_resourcemanager_start = "yarn --daemon start resourcemanager"
+        cmd_nodemanager_start = "yarn --daemon start nodemanager"
 
         if current_host == primary_host:
-            subprocess.call(cmd_prep_namenode_dir, shell=True)
-            subprocess.call(cmd_prep_datanode_dir, shell=True)
-            subprocess.call(cmd_namenode_format, shell=True)
-            subprocess.Popen(cmd_namenode_start, shell=True)
-            subprocess.Popen(cmd_datanode_start, shell=True)
-            subprocess.Popen(cmd_resourcemanager_start, shell=True)
-            subprocess.Popen(cmd_nodemanager_start, shell=True)
+            cmds = []
+            cmds.extend(cmd_prep_namenode_dir)
+            cmds.extend(cmd_prep_datanode_dir)
+            for x in cmds:
+                subprocess.check_call(x.split())
+            subprocess.check_call(cmd_namenode_format.split())
+            subprocess.check_call(cmd_namenode_start.split())
+            subprocess.check_call(cmd_datanode_start.split())
+            subprocess.check_call(cmd_resourcemanager_start.split())
+            subprocess.check_call(cmd_nodemanager_start.split())
             # TODO: wait for daemons to stabilize on primary + worker nodes
         else:
-            subprocess.call(cmd_prep_datanode_dir, shell=True)
-            subprocess.Popen(cmd_datanode_start, shell=True)
-            subprocess.Popen(cmd_nodemanager_start, shell=True)
+            cmds = []
+            cmds.extend(cmd_prep_datanode_dir)
+            for x in cmds:
+                subprocess.check_call(x.split())
+            subprocess.check_call(cmd_datanode_start.split())
+            subprocess.check_call(cmd_nodemanager_start.split())
+
+        self.logger.info("Starting hadoop daemons done")
 
     def wait_for_hadoop(self) -> None:
         def cluster_is_up() -> bool:
@@ -203,7 +212,13 @@ class Bootstrapper:
         See more details at https://spark.apache.org/docs/latest/spark-standalone.html
         """
         cmd_start_primary = "/usr/lib/spark/sbin/start-master.sh"
-        subprocess.Popen(cmd_start_primary, shell=True)
+        subprocess.Popen([cmd_start_primary])
+
+    def start_spark_slave(self) -> None:
+        primary_host = self.resource_config["hosts"][0]
+        primary_ip = socket.gethostbyname(primary_host)
+        url = "spark://{}:7077".format(primary_ip)
+        subprocess.Popen(["/usr/lib/spark/sbin/start-slave.sh", url])
 
     def deserialize_user_configuration(
         self, configuration_dict_or_list: Union[Dict[str, Any], List[Dict[str, Any]]]

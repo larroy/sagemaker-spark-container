@@ -16,7 +16,7 @@ import logging
 import socket
 import subprocess
 import traceback
-from typing import Any, Dict, Mapping, Sequence
+from typing import Any, Dict, Mapping, Sequence, List
 
 from requests.exceptions import ConnectionError
 from smspark.bootstrapper import Bootstrapper
@@ -96,7 +96,7 @@ class ProcessingJobManager(object):
     def _dns_lookup(self, host: str) -> None:
         socket.gethostbyname(host)
 
-    def run(self, spark_submit_cmd: str, spark_event_logs_s3_uri: str, local_spark_event_logs_dir: str) -> None:
+    def run(self, spark_submit_cmd: List[str], spark_event_logs_s3_uri: str, local_spark_event_logs_dir: str) -> None:
         """Run a Spark job.
 
         First, wait for workers to come up and bootstraps the cluster.
@@ -122,6 +122,7 @@ class ProcessingJobManager(object):
             )
 
             self.logger.info(f"Waiting for hosts to bootstrap: {self.hosts}")
+            self.bootstrapper.start_spark_standalone_primary()
 
             def all_hosts_have_bootstrapped() -> bool:
                 try:
@@ -139,7 +140,7 @@ class ProcessingJobManager(object):
             self.waiter.wait_for(predicate_fn=all_hosts_have_bootstrapped, timeout=180.0, period=5.0)
 
             try:
-                subprocess.run(spark_submit_cmd, check=True, shell=True)
+                subprocess.check_call(spark_submit_cmd)
                 self.logger.info("spark submit was successful. primary node exiting.")
             except subprocess.CalledProcessError as e:
                 self.logger.error(
@@ -173,6 +174,8 @@ class ProcessingJobManager(object):
 
             self.logger.info("waiting for the primary to come up")
             self.waiter.wait_for(primary_is_up, timeout=60.0, period=1.0)
+            self.logger.info("START SLAVE")
+            self.bootstrapper.start_spark_slave()
             self.logger.info("waiting for the primary to go down")
             self.waiter.wait_for(primary_is_down, timeout=float("inf"), period=5.0)
             self.logger.info("primary is down, worker now exiting")
